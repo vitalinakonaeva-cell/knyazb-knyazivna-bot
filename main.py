@@ -1,5 +1,6 @@
-# requirements:
-# python-telegram-bot>=20.8
+# ---- БОТ "Князь і Князівна коледжу" ----
+# Працює на python-telegram-bot v20.8
+# Автор: твій помічник ❤️
 
 import logging
 from datetime import datetime, timedelta, timezone
@@ -10,134 +11,128 @@ from telegram.ext import (
     MessageHandler,
     ConversationHandler,
     ContextTypes,
-    filters,
+    filters
 )
 
-# =============== НАЛАШТУВАННЯ ===============
-BOT_TOKEN = "8228312942:AAH9W6pWWwC7IVAB_31BAdns3Cnc9k5potU"
-ADMIN_ID = 1491698235  # заміни на свій Telegram ID
-DEADLINE_MINUTES = 6
-# ============================================
+# === 🔹 НАЛАШТУВАННЯ ===
+BOT_TOKEN = "8228312942:AAH9W6pWWwC7IVAB_31BAdns3Cnc9k5potU"     # встав токен із BotFather
+ADMIN_ID = 1491698235                   # свій Telegram ID
+DEADLINE_MINUTES = 6                    # час подання заявки
+# =========================
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     level=logging.INFO,
 )
-logger = logging.getLogger("kniaz_bot")
+logger = logging.getLogger("kniaz_knyazivna")
 
 # СТАНИ діалогу
 PHOTO, PSEUDONYM, CREDO_LAW, FULLNAME = range(4)
 
+# Тексти
 WELCOME = (
-    "Вітаю! Ви хочете подати свою кандидатуру на фото-конкурс "
-    "«Князь і Князівна коледжу». Для участі надішліть свою роботу (фото-косплей)."
+    "👑 Вітаю! Ви хочете подати свою кандидатуру на фото-конкурс "
+    "«Князь і Князівна коледжу».\n\n📸 Для участі надішліть своє фото-косплей "
+    "на історичну українську постать."
 )
 ASK_PSEUDONYM = (
-    "Напишіть свій псевдонім з характеристикою, наприклад: "
-    "Князь-відважний або Княгиня-прегарна."
+    "✨ Напишіть свій псевдонім з характеристикою. Наприклад:\n"
+    "Князь-відважний, Княгиня-прегарна або Князь-продуктивний Франко."
 )
 ASK_CREDO_LAW = (
-    "Тепер проголосіть свій постулат (кредо) і перший прийнятий закон."
+    "📜 Тепер проголосіть свій постулат (кредо) і перший прийнятий закон у вашій державі."
 )
-ASK_FULLNAME = "Вкажіть свої ПІБ і групу."
-THANKS = "Дякую! Ваша заявка прийнята. Очікуйте новин 🙂"
+ASK_FULLNAME = "🪪 Вкажіть свої ПІБ і групу."
+THANKS = "✅ Дякую! Ваша заявка прийнята. Очікуйте подальших новин!"
 TIMEOUT_MSG = (
-    "Минуло більше ніж 6 хв від початку оформлення заявки, діалог скинуто. "
+    "⏰ Минуло понад 6 хв від початку оформлення заявки, діалог скинуто.\n"
     "Щоб почати знову — введіть /start."
 )
-CANCEL_MSG = "Заявку скасовано. Ви можете почати знову командою /start."
+CANCEL_MSG = "❌ Заявку скасовано. Ви можете почати знову командою /start."
 
 
-def _now_utc():
+def now_utc():
     return datetime.now(timezone.utc)
 
 
-def _deadline_exceeded(context: ContextTypes.DEFAULT_TYPE) -> bool:
-    dl = context.user_data.get("deadline")
-    return bool(dl and _now_utc() > dl)
+def deadline_passed(context: ContextTypes.DEFAULT_TYPE) -> bool:
+    limit = context.user_data.get("deadline")
+    return bool(limit and now_utc() > limit)
 
 
-async def _ensure_deadline_or_abort(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    if _deadline_exceeded(context):
+async def check_time_or_stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    if deadline_passed(context):
         await update.effective_chat.send_message(TIMEOUT_MSG, reply_markup=ReplyKeyboardRemove())
         return False
     return True
 
 
-async def _send_submission_to_admin(context: ContextTypes.DEFAULT_TYPE):
-    data = context.user_data
-    photo_id = data.get("photo_file_id")
-    pseudo = data.get("pseudonym")
-    credo = data.get("credo")
-    law = data.get("law")
-    fullname = data.get("fullname")
-    user = data.get("user_mention", "—")
-
-    text = (
-        "📨 НОВА ЗАЯВКА НА КОНКУРС «Князь і Князівна коледжу»\n\n"
-        f"Від: {user}\n"
-        f"Псевдонім: {pseudo}\n"
-        f"Кредо: {credo}\n"
-        f"Закон: {law}\n"
-        f"ПІБ і група: {fullname}\n"
-        f"Час (UTC): {_now_utc().strftime('%Y-%m-%d %H:%M:%S')}"
+async def send_to_admin(context: ContextTypes.DEFAULT_TYPE):
+    """Надсилає заявку адміну"""
+    d = context.user_data
+    caption = (
+        "📩 *НОВА ЗАЯВКА НА КОНКУРС*\n"
+        "«Князь і Князівна коледжу» 👑\n\n"
+        f"👤 Від: {d.get('user_name', '-')}\n"
+        f"🏰 Псевдонім: {d.get('pseudonym', '-')}\n"
+        f"📜 Кредо: {d.get('credo', '-')}\n"
+        f"⚖️ Закон: {d.get('law', '-')}\n"
+        f"🪪 ПІБ і група: {d.get('fullname', '-')}\n"
+        f"🕓 Час (UTC): {now_utc().strftime('%Y-%m-%d %H:%M:%S')}"
     )
+    try:
+        if d.get("photo_id"):
+            await context.bot.send_photo(ADMIN_ID, d["photo_id"], caption=caption, parse_mode="Markdown")
+        else:
+            await context.bot.send_message(ADMIN_ID, caption, parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Не вдалося надіслати адміну: {e}")
 
-    if photo_id:
-        try:
-            await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo_id, caption=text)
-        except Exception as e:
-            logger.warning(f"Не вдалося надіслати фото адміну: {e}")
-    else:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=text)
 
-
+# ======== ЕТАПИ ДІАЛОГУ ========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    context.user_data["deadline"] = _now_utc() + timedelta(minutes=DEADLINE_MINUTES)
+    context.user_data["deadline"] = now_utc() + timedelta(minutes=DEADLINE_MINUTES)
     user = update.effective_user
-    mention = f"{user.full_name} (@{user.username})" if user.username else user.full_name
-    context.user_data["user_mention"] = mention
+    context.user_data["user_name"] = f"{user.full_name} (@{user.username})" if user.username else user.full_name
     await update.message.reply_text(WELCOME)
     return PHOTO
 
 
-async def photo_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not await _ensure_deadline_or_abort(update, context):
+async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not await check_time_or_stop(update, context):
         return ConversationHandler.END
-    if update.message and update.message.photo:
-        context.user_data["photo_file_id"] = update.message.photo[-1].file_id
+    if update.message.photo:
+        context.user_data["photo_id"] = update.message.photo[-1].file_id
         await update.message.reply_text(ASK_PSEUDONYM)
         return PSEUDONYM
-    await update.message.reply_text("Надішліть, будь ласка, саме фото-косплей.")
-    return PHOTO
+    else:
+        await update.message.reply_text("Надішліть, будь ласка, фото-косплей 📸.")
+        return PHOTO
 
 
-async def pseudonym_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not await _ensure_deadline_or_abort(update, context):
+async def get_pseudonym(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not await check_time_or_stop(update, context):
         return ConversationHandler.END
-    text = update.message.text.strip()
-    context.user_data["pseudonym"] = text
+    context.user_data["pseudonym"] = update.message.text.strip()
     await update.message.reply_text(ASK_CREDO_LAW)
     return CREDO_LAW
 
 
-async def credo_law_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not await _ensure_deadline_or_abort(update, context):
+async def get_credo_law(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not await check_time_or_stop(update, context):
         return ConversationHandler.END
-    text = update.message.text.strip()
-    context.user_data["credo"] = text
+    context.user_data["credo"] = update.message.text.strip()
     context.user_data["law"] = "—"
     await update.message.reply_text(ASK_FULLNAME)
     return FULLNAME
 
 
-async def fullname_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not await _ensure_deadline_or_abort(update, context):
+async def get_fullname(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not await check_time_or_stop(update, context):
         return ConversationHandler.END
-    text = update.message.text.strip()
-    context.user_data["fullname"] = text
+    context.user_data["fullname"] = update.message.text.strip()
     await update.message.reply_text(THANKS)
-    await _send_submission_to_admin(context)
+    await send_to_admin(context)
     return ConversationHandler.END
 
 
@@ -146,27 +141,28 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+# ======== ГОЛОВНА ФУНКЦІЯ ========
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    conv_handler = ConversationHandler(
+    conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            PHOTO: [MessageHandler(filters.PHOTO, photo_received)],
-            PSEUDONYM: [MessageHandler(filters.TEXT & ~filters.COMMAND, pseudonym_received)],
-            CREDO_LAW: [MessageHandler(filters.TEXT & ~filters.COMMAND, credo_law_received)],
-            FULLNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, fullname_received)],
+            PHOTO: [MessageHandler(filters.PHOTO, get_photo)],
+            PSEUDONYM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_pseudonym)],
+            CREDO_LAW: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_credo_law)],
+            FULLNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_fullname)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        conversation_timeout=DEADLINE_MINUTES * 60,
     )
 
-    app.add_handler(conv_handler)
+    app.add_handler(conv)
     app.add_handler(CommandHandler("cancel", cancel))
 
-    logger.info("Бот запущено!")
+    logger.info("🤖 Бот запущено і готовий приймати заявки!")
     app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
     main()
-
