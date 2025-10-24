@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 # =============== НАЛАШТУВАННЯ ===============
-BOT_TOKEN = "тут_твій_токен"
+BOT_TOKEN = "8228312942:AAH9W6pWWwC7IVAB_31BAdns3Cnc9k5potU"
 ADMIN_ID = 1491698235  # заміни на свій Telegram ID
 DEADLINE_MINUTES = 6
 # ============================================
@@ -169,3 +169,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
