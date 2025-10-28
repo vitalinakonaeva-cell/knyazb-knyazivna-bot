@@ -12,8 +12,8 @@ from telegram.ext import (
 )
 
 # =============== НАСТРОЙКИ ===============
-BOT_TOKEN = 8228312942:AAH9W6pWWwC7IVAB_31BAdns3Cnc9k5potU  # Токен берется из переменных окружения
-ADMIN_ID = 1491698235  # замени на свой Telegram ID
+BOT_TOKEN = 8228312942:AAH9W6pWWwC7IVAB_31BAdns3Cnc9k5potU 
+ADMIN_ID = 1491698235 
 DEADLINE_MINUTES = 6
 # ========================================
 
@@ -163,3 +163,4 @@ def main():
 
 if __name__ == "main":
     main()
+
