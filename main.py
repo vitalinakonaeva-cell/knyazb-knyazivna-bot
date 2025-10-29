@@ -110,7 +110,8 @@ async def photo_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(ASK_PSEUDONYM)
         return PSEUDONYM
     await update.message.reply_text("Надішліть, будь ласка, саме фото-косплей.")
-    return PHOTOasync def pseudonym_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    return PHOTO
+    async def pseudonym_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not await _ensure_deadline_or_abort(update, context):
         return ConversationHandler.END
     context.user_data["pseudonym"] = update.message.text.strip()
@@ -167,3 +168,4 @@ def main():
 
 if __name__ == "main":
     main()
+
