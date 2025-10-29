@@ -109,14 +109,16 @@ async def photo_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data["photo_file_id"] = update.message.photo[-1].file_id
         await update.message.reply_text(ASK_PSEUDONYM)
         return PSEUDONYM
-    await update.message.reply_text("Надішліть, будь ласка, саме фото-косплей.")
-    return PHOTO
-    async def pseudonym_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not await _ensure_deadline_or_abort(update, context):
-        return ConversationHandler.END
-    context.user_data["pseudonym"] = update.message.text.strip()
-    await update.message.reply_text(ASK_CREDO_LAW)
-    return CREDO_LAW
+  await update.message.reply_text("Надішліть, будь ласка, саме фото косплею")
+return PHOTO
+
+async def pseudonym_received(update: Update, context: ContextTyeps.DEFAULT_TYPE) -> int:
+if not await _ensure_deadline_or_abort(update, context):
+    return ConversationHandler.END
+
+context. user_data["pseudonym"] = update.message.text.strip()
+await update.message.reply_text(ASK_CREDO_LAW)
+return CREDO_LAW
 
 
 async def credo_law_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -168,5 +170,6 @@ def main():
 
 if __name__ == "main":
     main()
+
 
 
