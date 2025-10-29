@@ -12,9 +12,9 @@ from telegram.ext import (
 )
 
 # =============== НАСТРОЙКИ ===============
-BOT_TOKEN = "8228312942:AAH9W6pWWwC7IVAB_31BAdns3Cnc9k5potU" 
-ADMIN_ID = 1491698235 
-DEADLINE_MINUTES = 6
+BOT_TOKEN = os.getenv("8228312942:AAH9W6pWWwC7IVAB_31BAdns3Cnc9k5potU")  # Токен из переменных окружения
+ADMIN_ID = 1491698235               # Замени на свой Telegram ID
+DEADLINE_MINUTES = 6                # Время на заполнение формы
 # ========================================
 
 logging.basicConfig(
@@ -26,6 +26,7 @@ logger = logging.getLogger("kniaz_bot")
 # Состояния диалога
 PHOTO, PSEUDONYM, CREDO_LAW, FULLNAME = range(4)
 
+# Тексты сообщений
 WELCOME = (
     "Вітаю! Ви хочете подати свою кандидатуру на фото-конкурс "
     "«Князь і Князівна коледжу». Для участі надішліть свою роботу (фото-косплей)."
@@ -44,6 +45,7 @@ TIMEOUT_MSG = (
 CANCEL_MSG = "Заявку скасовано. Ви можете почати знову командою /start."
 
 
+# ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
 def _now_utc():
     return datetime.now(timezone.utc)
 
@@ -54,6 +56,7 @@ def _deadline_exceeded(context: ContextTypes.DEFAULT_TYPE) -> bool:
 
 
 async def _ensure_deadline_or_abort(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Проверка тайм-аута. Если истёк — завершает диалог."""
     if _deadline_exceeded(context):
         await update.effective_chat.send_message(TIMEOUT_MSG, reply_markup=ReplyKeyboardRemove())
         return False
@@ -61,11 +64,11 @@ async def _ensure_deadline_or_abort(update: Update, context: ContextTypes.DEFAUL
 
 
 async def _send_submission_to_admin(context: ContextTypes.DEFAULT_TYPE):
+    """Отправка заявки админу"""
     data = context.user_data
     photo_id = data.get("photo_file_id")
     pseudo = data.get("pseudonym")
     credo = data.get("credo")
-    law = data.get("law")
     fullname = data.get("fullname")
     user = data.get("user_mention", "—")
 
@@ -73,26 +76,28 @@ async def _send_submission_to_admin(context: ContextTypes.DEFAULT_TYPE):
         "📨 НОВА ЗАЯВКА НА КОНКУРС «Князь і Князівна коледжу»\n\n"
         f"Від: {user}\n"
         f"Псевдонім: {pseudo}\n"
-        f"Кредо: {credo}\n"
-        f"Закон: {law}\n"
+        f"Кредо і закон: {credo}\n"
         f"ПІБ і група: {fullname}\n"
         f"Час (UTC): {_now_utc().strftime('%Y-%m-%d %H:%M:%S')}"
     )
 
-    if photo_id:
-        try:
+    try:
+        if photo_id:
             await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo_id, caption=text)
-        except Exception as e:
-            logger.warning(f"Не вдалося надіслати фото адміну: {e}")
-    else:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=text)
+        else:
+            await context.bot.send_message(chat_id=ADMIN_ID, text=text)
+    except Exception as e:
+        logger.warning(f"Не вдалося надіслати заявку адміну: {e}")
 
 
+# ====== ОБРАБОТЧИКИ ДИАЛОГА ======
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Старт диалога"""
     context.user_data["deadline"] = _now_utc() + timedelta(minutes=DEADLINE_MINUTES)
     user = update.effective_user
     mention = f"{user.full_name} (@{user.username})" if user.username else user.full_name
     context.user_data["user_mention"] = mention
+
     await update.message.reply_text(WELCOME)
     return PHOTO
 
@@ -105,22 +110,18 @@ async def photo_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(ASK_PSEUDONYM)
         return PSEUDONYM
     await update.message.reply_text("Надішліть, будь ласка, саме фото-косплей.")
-    return PHOTO
-
-
-async def pseudonym_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    return PHOTOasync def pseudonym_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not await _ensure_deadline_or_abort(update, context):
         return ConversationHandler.END
-    text = update.message.text.strip()
-    context.user_data["pseudonym"] = text
+    context.user_data["pseudonym"] = update.message.text.strip()
     await update.message.reply_text(ASK_CREDO_LAW)
     return CREDO_LAW
+
+
 async def credo_law_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not await _ensure_deadline_or_abort(update, context):
         return ConversationHandler.END
-    text = update.message.text.strip()
-    context.user_data["credo"] = text
-    context.user_data["law"] = "—"
+    context.user_data["credo"] = update.message.text.strip()
     await update.message.reply_text(ASK_FULLNAME)
     return FULLNAME
 
@@ -128,19 +129,22 @@ async def credo_law_received(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def fullname_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not await _ensure_deadline_or_abort(update, context):
         return ConversationHandler.END
-    text = update.message.text.strip()
-    context.user_data["fullname"] = text
-    await update.message.reply_text(THANKS)
+    context.user_data["fullname"] = update.message.text.strip()
+    await update.message.reply_text(THANKS, reply_markup=ReplyKeyboardRemove())
     await _send_submission_to_admin(context)
     return ConversationHandler.END
 
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(CANCEL_MSG, reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
+# ====== ЗАПУСК БОТА ======
 def main():
+    if not BOT_TOKEN:
+        raise ValueError("❌ BOT_TOKEN не найден! Добавь его в переменные окружения.")
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
@@ -152,16 +156,14 @@ def main():
             FULLNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, fullname_received)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
     app.add_handler(conv_handler)
-    app.add_handler(CommandHandler("cancel", cancel))
 
-    logger.info("✅ Бот запущено та працює 24/7!")
-    app.run_polling(drop_pending_updates=True)
+    logger.info("✅ Бот запущен і готовий до роботи.")
+    app.run_polling()
 
 
 if __name__ == "main":
     main()
-
-
